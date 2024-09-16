@@ -37,17 +37,36 @@
 // #include <glm/glm.hpp>
 #endif
 
+#ifndef AronLib
+#define AronLib
 #include "AronLib.h"
+#endif
+
+
+
+// sdfRect :: Vertex3 GLfloat -> Vertex3 GLfloat -> Bool -> GLfloat
+// sdfRect r s isRound = isRound ? (if dx > 0 && dy > 0 then ds else  max dx dy) $ (min ds $ max dx dy)
+  // where
+   // dx = vx_1 $ s - r
+   // dy = vx_2 $ s - r
+   // ds = nr (r -: s)
 
 const char *vertexShaderSource = 
 R"(#version 330 core
 layout (location = 0) in vec2 position;            
 layout (location = 1) in vec2 inTexCoord;
+uniform float runit;
 
 out vec2 texCoord;
 void main(){
+     mat4 m1 = mat4(1.0);
+     m1[3][0] = runit; 
+
     texCoord = inTexCoord;
-    gl_Position = vec4(position.x, position.y, 0.0f, 1.0f);
+    vec4 pos = vec4(position, 0.0f, 1.0f);
+    vec4 tran_pos = m1 * pos;
+    // gl_Position = vec4(position.x, position.y, 0.0f, 1.0f);
+    gl_Position = tran_pos; 
 })";
 
 const char *fragmentShaderSource = 
@@ -58,17 +77,25 @@ uniform float iTime;
 out vec4 fragColor;
 vec2 fragCoord = gl_FragCoord.xy;
 
+
+float myRect(vec2 v0, vec2 cen, vec2 v1){
+  vec2 vc = v0 - cen;
+  float dx = (v1 - vc).x;
+  float dy = (v1 - vc).y;
+  float ds = length (v1 - vc);
+  return (dx > 0 && dy > 0 ? ds : max(dx, dy));
+}
+
 float myCircle(vec2 v0, float r){
-   vec2 cen = vec2(0, 0);
+   vec2 cen = vec2(0.5, 0.5);
    vec2 dv = v0 - cen;
    float d = sqrt(dot(dv, dv));
    return d - r;
 }
-
 void main() {
     // Normalized pixel coordinates (from 0 to 1)
     vec2 uv = fragCoord/iResolution.xy;
-    uv = uv * 2.0 - 1.0;//transform from [0,1] to [-1,1]
+    uv = uv * 2.0 - 1.0;                   //transform from [0,1] to [-1,1]
     uv.x *= iResolution.x / iResolution.y; //aspect fix
     
     /*                                       //
@@ -98,11 +125,18 @@ void main() {
     //result
     // fragColor = vec4(finalColor.rgb,cineShaderZ);
      */    
-    if(myCircle(uv, sin(iTime)) < 0.001){
+
+     
+    
+    vec2 v0 = vec2(0.1, 0.2);
+    vec2 cen = vec2(0.2, 0.2);
+    // if(myCircle(uv, sin(iTime)) < 0.001){
+    if(myRect(v0, cen, uv) < 0.001){
         fragColor = vec4(0, 1, 0, 1.0);
     }else{
         fragColor = vec4(0.5, 0.5, 0.5, 1.0);
     }
+    
 })";
 
 int main()
@@ -229,6 +263,9 @@ int main()
         // glUniform1f(glGetUniformLocation(shaderProgram, "iTime"), (int)currentFrame % 20); 
         // glUniform1f(glGetUniformLocation(shaderProgram, "iTime"), currentFrame); 
         glUniform1f(glGetUniformLocation(shaderProgram, "iTime"), (int)currentFrame % 60); 
+        // glUniform1f(glGetUniformLocation(shaderProgram, "runit"), (int)currentFrame % 60); 
+        glUniform1f(glGetUniformLocation(shaderProgram, "runit"), sin(currentFrame)); 
+        printf("currentFrame=%f\n", currentFrame);
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLES, 0, 6);
 
